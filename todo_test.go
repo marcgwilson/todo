@@ -19,10 +19,10 @@ func TestTodoManager(t *testing.T) {
 	tm := &TodoManager{db, 20}
 
 	expected := &Todo{
-		ID: 0,
+		ID:          0,
 		Description: "todo 1",
-		Due: time.Now().UTC(),
-		State: state.Todo,
+		Due:         time.Now().UTC(),
+		State:       state.Todo,
 	}
 
 	data := map[string]interface{}{
@@ -44,10 +44,10 @@ func TestTodoManager(t *testing.T) {
 	}
 
 	expected2 := &Todo{
-		ID: 0,
+		ID:          0,
 		Description: "todo 2",
-		Due: time.Now().UTC(),
-		State: state.Todo,
+		Due:         time.Now().UTC(),
+		State:       state.Todo,
 	}
 
 	data2 := map[string]interface{}{
@@ -79,10 +79,10 @@ func TestTodoManager(t *testing.T) {
 	}
 
 	expected3 := &Todo{
-		ID: 0,
+		ID:          0,
 		Description: "todo 3",
-		Due: time.Now().UTC(),
-		State: state.Todo,
+		Due:         time.Now().UTC(),
+		State:       state.Todo,
 	}
 
 	data3 := map[string]interface{}{

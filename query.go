@@ -56,9 +56,9 @@ func timeClause(comp string, rfc3339 string) (string, error) {
 }
 
 type ParseError struct {
-	Key     string
-	Value   string
-	Message string
+	Key     string `json:"key"`
+	Value   string `json:"value"`
+	Message string `json:"message"`
 }
 
 type PaginatedFilter struct {

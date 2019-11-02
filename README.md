@@ -7,6 +7,15 @@
 | **`TODO_PORT`**    | `:8000`     |
 | **`TODO_LIMIT`**   | `20`        |
 
+## API
+| **NAME**           | **METHOD**  | **URL**     |
+| :----------------- | :---------- | :---------- |
+| List               | **GET**     | `/`         |
+| Create             | **POST**    | `/`         |
+| Update             | **PATCH**   | `/:id/`     |
+| Retrieve           | **GET**     | `/:id/`     |
+| Delete             | **DELETE**  | `/:id/`     |
+
 ## Query Parameters
 | **NAME**           | **TYPE**                   |
 | :----------------- | :------------------------- |

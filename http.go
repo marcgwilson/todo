@@ -5,26 +5,26 @@ import (
 )
 
 type APIError struct {
-	Code    int
-	Message string
+	Code    int    `json:"code"`
+	Message string `json:"message"`
 }
 
 type APIValidationError struct {
-	Code int
-	Message string
-	Errors []*ValidationError
+	Code    int                `json:"code"`
+	Message string             `json:"message"`
+	Errors  []*ValidationError `json:"errors"`
 }
 
 type ValidationError struct {
-	Key string
-	Value interface{}
-	Message string
+	Key     string      `json:"key"`
+	Value   interface{} `json:"value"`
+	Message string      `json:"message"`
 }
 
 type PaginatedResult struct {
-	Next     string
-	Previous string
-	Results  TodoList
+	Next     string   `json:"next"`
+	Previous string   `json:"previous"`
+	Results  TodoList `json:"results"`
 }
 
 func NewMux(tm *TodoManager) *mux.Router {

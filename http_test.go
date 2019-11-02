@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/marcgwilson/todo/state"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/marcgwilson/todo/state"
 
 	"bytes"
 	"encoding/json"
@@ -97,41 +97,39 @@ func testCreateErrors(ts *httptest.Server, tm *TodoManager, td TodoList) func(*t
 		client := ts.Client()
 
 		cases := []map[string]interface{}{
+			map[string]interface{}{},
 			map[string]interface{}{
-			},
-			map[string]interface{}{
-				"desc":  "Created TODO",
+				"desc": "Created TODO",
 			},
 			map[string]interface{}{
 				"desc":  "Created TODO",
 				"state": "invalid state",
 			},
 			map[string]interface{}{
-				"due": "invalid date",
+				"due":   "invalid date",
 				"state": "invalid state",
 			},
 		}
 
 		errors := [][]*ValidationError{
 			[]*ValidationError{
-				&ValidationError{Key:"desc", Value:"", Message:"required attribute"},
-		        &ValidationError{Key:"due", Value:"", Message:"required attribute"},
-		        &ValidationError{Key:"state", Value:"", Message:"required attribute"},
+				&ValidationError{Key: "desc", Value: "", Message: "required attribute"},
+				&ValidationError{Key: "due", Value: "", Message: "required attribute"},
+				&ValidationError{Key: "state", Value: "", Message: "required attribute"},
 			},
 			[]*ValidationError{
-		        &ValidationError{Key:"due", Value:"", Message:"required attribute"},
-        		&ValidationError{Key:"state", Value:"", Message:"required attribute"},
+				&ValidationError{Key: "due", Value: "", Message: "required attribute"},
+				&ValidationError{Key: "state", Value: "", Message: "required attribute"},
 			},
 
 			[]*ValidationError{
-		        &ValidationError{Key:"due", Value:"", Message:"required attribute"},
-		        &ValidationError{Key:"state", Value:"invalid state", Message:"state must be one of the following: \"todo\", \"in_progress\", \"done\""},
-		        
+				&ValidationError{Key: "due", Value: "", Message: "required attribute"},
+				&ValidationError{Key: "state", Value: "invalid state", Message: "state must be one of the following: \"todo\", \"in_progress\", \"done\""},
 			},
 			[]*ValidationError{
-				&ValidationError{Key:"desc", Value:"", Message:"required attribute"},
-				&ValidationError{Key:"due", Value:"invalid date", Message:"Does not match format 'date-time'"},
-        		&ValidationError{Key:"state", Value:"invalid state", Message:"state must be one of the following: \"todo\", \"in_progress\", \"done\""},
+				&ValidationError{Key: "desc", Value: "", Message: "required attribute"},
+				&ValidationError{Key: "due", Value: "invalid date", Message: "Does not match format 'date-time'"},
+				&ValidationError{Key: "state", Value: "invalid state", Message: "state must be one of the following: \"todo\", \"in_progress\", \"done\""},
 			},
 		}
 
@@ -249,8 +247,8 @@ func testUpdateErrors(ts *httptest.Server, tm *TodoManager, td TodoList) func(*t
 		}
 
 		expectedErrors := []*ValidationError{
-			&ValidationError{Key:"due", Value:"invalid date", Message:"Does not match format 'date-time'"},
-    		&ValidationError{Key:"state", Value:"invalid state", Message:"state must be one of the following: \"todo\", \"in_progress\", \"done\""},
+			&ValidationError{Key: "due", Value: "invalid date", Message: "Does not match format 'date-time'"},
+			&ValidationError{Key: "state", Value: "invalid state", Message: "state must be one of the following: \"todo\", \"in_progress\", \"done\""},
 		}
 
 		if payload, err = json.Marshal(p); err != nil {

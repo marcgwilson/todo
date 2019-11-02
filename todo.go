@@ -19,10 +19,10 @@ var CreateStmt = `CREATE TABLE IF NOT EXISTS todo (
 );`
 
 type Todo struct {
-	ID          int64       `db:"id"`
-	Description string      `db:"desc"`
-	Due         time.Time   `db:"due"`
-	State       state.State `db:"state"`
+	ID          int64       `db:"id" json:"id"`
+	Description string      `db:"desc" json:"desc"`
+	Due         time.Time   `db:"due" json:"due"`
+	State       state.State `db:"state" json:"state"`
 }
 
 func (r *Todo) Equals(t *Todo) bool {

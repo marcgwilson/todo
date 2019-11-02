@@ -66,6 +66,10 @@ func (r *Handler) ListFunc() http.HandlerFunc {
 				e := []*APIError{&APIError{Code: http.StatusBadRequest, Message: err.Error()}}
 				json.NewEncoder(w).Encode(e)
 			} else {
+
+				log.Printf("req: %#v\n", req.Host)
+				log.Printf("protocol: %s\n", req.Proto)
+				
 				next := ""
 				previous := ""
 
