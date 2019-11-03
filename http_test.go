@@ -440,19 +440,21 @@ func testList(ts *httptest.Server, tm *TodoManager, td TodoList) func(*testing.T
 				t.Fatal(err)
 			}
 
-			t.Logf("next: %s\nprevious: %s\n", result.Next, result.Previous)
+			expectedNext := "/?page=3"
+			if result.Next != expectedNext {
+				t.Errorf("result.Next = %s != %s", result.Next, expectedNext)
+			}
+
+			expectedPrevious := "/?page=1"
+			if result.Previous != expectedPrevious {
+				t.Errorf("result.Previous = %s != %s", result.Previous, expectedPrevious)
+			}
+
 			if !expected.Equals(result.Results) {
 				t.Errorf("actual: %s", spew.Sdump(result.Results))
 				t.Errorf("expected: %s", spew.Sdump(expected))
 				// t.Errorf("slices not equal len(actual) = %d, len(expected) = %d", len(result.Results), len(expected))
 			}
-			// if result.Next != "page=5" {
-			// 	t.Errorf("result.Next=%s", result.Next)
-			// }
-
-			// if result.Previous != "page=3" {
-			// 	t.Errorf("result.Previous=%s", result.Previous)
-			// }
 		}
 	}
 }
@@ -482,18 +484,25 @@ func listFilterState(ts *httptest.Server, tm *TodoManager, td TodoList) func(*te
 				t.Fatal(err)
 			}
 
-			t.Logf("next: %s\nprevious: %s\n", result.Next, result.Previous)
+            expectedNext := "/?page=3&state=todo&state=done"
+			if result.Next != expectedNext {
+				t.Errorf("result.Next = %s != %s", result.Next, expectedNext)
+			}
+
+			expectedPrevious := "/?page=1&state=todo&state=done"
+			if result.Previous != expectedPrevious {
+				t.Errorf("result.Previous = %s != %s", result.Previous, expectedPrevious)
+			}
+
+			// if !expected.Equals(result.Results) {
+			// 	t.Errorf("actual: %s", spew.Sdump(result.Results))
+			// 	t.Errorf("expected: %s", spew.Sdump(expected))
+			// 	// t.Errorf("slices not equal len(actual) = %d, len(expected) = %d", len(result.Results), len(expected))
+			// }
+			
 			if len(result.Results) != 20 {
 				t.Errorf("len(result.Results = %d", len(result.Results))
 			}
-
-			// if result.Next != "page=2&state=todo&state=done" {
-			// 	t.Errorf("result.Next=%s", result.Next)
-			// }
-
-			// if result.Previous != "" {
-			// 	t.Errorf("result.Previous=%s", result.Previous)
-			// }
 		}
 	}
 }
@@ -509,8 +518,6 @@ func listFilterDue(ts *httptest.Server, tm *TodoManager, td TodoList) func(*test
 		lte := now.Add(time.Second * 10)
 
 		filter := "/?due:gt=" + gte.Format(time.RFC3339) + "&due:lt=" + lte.Format(time.RFC3339)
-
-		// t.Logf("filter: %s", filter)
 
 		client := ts.Client()
 		if res, err = client.Get(ts.URL + filter); err != nil {
@@ -530,18 +537,20 @@ func listFilterDue(ts *httptest.Server, tm *TodoManager, td TodoList) func(*test
 				t.Fatal(err)
 			}
 
-			t.Logf("next: %s\nprevious: %s\n", result.Next, result.Previous)
+            expectedNext := fmt.Sprintf("/?due:gt=%s&due:lt=%s&page=2", gte.Format(time.RFC3339), lte.Format(time.RFC3339))
+
+			if result.Next != expectedNext {
+				t.Errorf("result.Next = %s != %s", result.Next, expectedNext)
+			}
+
+			expectedPrevious := ""
+			if result.Previous != expectedPrevious {
+				t.Errorf("result.Previous = %s != %s", result.Previous, expectedPrevious)
+			}
+
 			if len(result.Results) != 20 {
 				t.Errorf("len(result.Results = %d", len(result.Results))
 			}
-
-			// if result.Next == "" {
-			// 	t.Errorf("result.Next=%q", result.Next)
-			// }
-
-			// if result.Previous != "" {
-			// 	t.Errorf("result.Previous=%s", result.Previous)
-			// }
 		}
 	}
 }

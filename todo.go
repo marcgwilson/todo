@@ -10,7 +10,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -119,15 +118,15 @@ func (r *TodoManager) Get(id int64) (*Todo, error) {
 	}
 }
 
-func (r *TodoManager) Query(filter *query.ParseResult) (TodoList, error) {
+func (r *TodoManager) Query(filter *query.Query) (TodoList, error) {
 	var stmt *sql.Stmt
 	var rows *sql.Rows
 	var err error
 
-	q := "SELECT rowid, desc, due, state FROM todo " + filter.Query()
+	q := "SELECT rowid, desc, due, state FROM todo" + filter.Query()
 
-	// log.Println(q)
-	// log.Printf("%#v\n", filter.Values())
+	log.Println(q)
+	log.Printf("%#v\n", filter.Values())
 
 	if stmt, err = r.Database.Prepare(q); err != nil {
 		return nil, err
@@ -160,12 +159,12 @@ func (r *TodoManager) Query(filter *query.ParseResult) (TodoList, error) {
 	return results, nil
 }
 
-func (r *TodoManager) Count(filter *query.ParseResult) (int, error) {
+func (r *TodoManager) Count(filter *query.Query) (int64, error) {
 	var stmt *sql.Stmt
 	var err error
-	var count int
+	var count int64
 	
-	q := "SELECT COUNT(*) FROM todo " + filter.Query()
+	q := "SELECT COUNT(*) FROM todo" + filter.Query()
 
 	log.Println(q)
 	log.Printf("%#v\n", filter.Values())
@@ -183,42 +182,33 @@ func (r *TodoManager) Count(filter *query.ParseResult) (int, error) {
 
 func (r *TodoManager) Create(data map[string]interface{}) (*Todo, error) {
 	var err error
-
+	var id int64
 	var result sql.Result
 	var tx *sql.Tx
 	var stmt *sql.Stmt
 
-	keys := []string{"desc", "due", "state"}
+	var d TodoMap
 
-	values := []interface{}{}
-	for _, key := range keys {
-		val := data[key]
-		if key == "due" {
-			if t, err := time.Parse(time.RFC3339, val.(string)); err != nil {
-				return nil, fmt.Errorf("Invalid datetime format")
-			} else {
-				values = append(values, t.Unix())
-			}
-		} else {
-			values = append(values, val)
-		}
+	if d, err = Transform(data); err != nil {
+		return nil, err
 	}
+
+	insert := d.InsertVars()
+	sql := fmt.Sprintf("INSERT INTO todo(%s) VALUES(%s)", insert.Names, insert.Bindvars)
 
 	if tx, err = r.Database.Begin(); err != nil {
 		return nil, err
 	}
 
-	if stmt, err = tx.Prepare("INSERT INTO todo(desc, due, state) VALUES(?, ?, ?)"); err != nil {
+	if stmt, err = tx.Prepare(sql); err != nil {
 		return nil, err
 	}
 
 	defer stmt.Close()
 
-	if result, err = stmt.Exec(values...); err != nil {
+	if result, err = stmt.Exec(insert.Values...); err != nil {
 		return nil, err
 	}
-
-	var id int64
 
 	if id, err = result.LastInsertId(); err != nil {
 		return nil, err
@@ -228,17 +218,7 @@ func (r *TodoManager) Create(data map[string]interface{}) (*Todo, error) {
 		return nil, err
 	}
 
-	var todoState state.State
-
-	if st, ok := values[2].(string); ok {
-		todoState = state.State(st)
-	} else if st, ok := values[2].(state.State); ok {
-		todoState = st
-	} else {
-		todoState = state.Todo
-	}
-
-	return &Todo{id, values[0].(string), time.Unix(values[1].(int64), 0), todoState}, nil
+	return &Todo{id, d.Description(), d.Due(), d.State()}, nil
 }
 
 func (r *TodoManager) Update(id int64, data map[string]interface{}) (*Todo, error) {
@@ -247,22 +227,14 @@ func (r *TodoManager) Update(id int64, data map[string]interface{}) (*Todo, erro
 	var tx *sql.Tx
 	var stmt *sql.Stmt
 
-	if val, ok := data["due"]; ok {
-		if t, err := time.Parse(time.RFC3339, val.(string)); err != nil {
-			return nil, fmt.Errorf("Invalid datetime format")
-		} else {
-			data["due"] = t.Unix()
-		}
+	var d TodoMap
+
+	if d, err = Transform(data); err != nil {
+		return nil, err
 	}
 
-	keys := []string{}
-	values := []interface{}{}
-	for k, v := range data {
-		keys = append(keys, fmt.Sprintf("%s = ?", k))
-		values = append(values, v)
-	}
-
-	query := fmt.Sprintf("UPDATE todo SET %s WHERE rowid = ?;", strings.Join(keys, ", "))
+	update := d.UpdateVars()
+	query := fmt.Sprintf("UPDATE todo SET %s WHERE rowid = ?;", update.Bindvars)
 
 	if tx, err = r.Database.Begin(); err != nil {
 		return nil, err
@@ -274,6 +246,7 @@ func (r *TodoManager) Update(id int64, data map[string]interface{}) (*Todo, erro
 
 	defer stmt.Close()
 
+	values := update.Values
 	values = append(values, id)
 	if _, err = stmt.Exec(values...); err != nil {
 		return nil, err

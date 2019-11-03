@@ -5,61 +5,155 @@ import (
 	"net/url"
 	"strings"
 	"sort"
-	"strconv"
 )
 
-func All() *ParseResult {
-	return &ParseResult{"", []interface{}{}, []error{}, &CountQueryParam{}, &PageQueryParam{}}
+func All() *Query {
+	return &Query{";", []interface{}{}}
 }
 
-type ParseResult struct {
-	query string
-	values []interface{}
+type QueryParams struct {
+	params map[string]IQueryParam
 	errors []error
-	limit *CountQueryParam
-	offset *PageQueryParam
 }
 
-func (r *ParseResult) Query() string {
-	return r.query
+func (r *QueryParams) Offset() *PageQueryParam {
+	if val, ok := r.params["page"]; ok {
+		return val.(*PageQueryParam)
+	}
+	return nil
 }
 
-func (r *ParseResult) Values() []interface{} {
-	return r.values
+func (r *QueryParams) Limit() *CountQueryParam {
+	if val, ok := r.params["count"]; ok {
+		return val.(*CountQueryParam)
+	}
+	return nil
 }
 
-func (r *ParseResult) Errors() []error {
+func (r *QueryParams) Params() map[string]IQueryParam {
+	return r.params
+}
+
+func (r *QueryParams) Errors() []error {
 	if len(r.errors) == 0 {
 		return nil
 	}
 	return r.errors
 }
 
-func (r *ParseResult) NextPage(u *url.URL, count int64) string {
-	if r.offset.Offset() + r.limit.Count() < count {
-		u, _ := url.Parse(u.String())
-		values := u.Query()
-		values.Set("page", strconv.FormatInt(r.offset.Page() + 1, 10))
-		queryString, _ := url.QueryUnescape(values.Encode())
-		u.RawQuery = queryString
-		return u.String()
+func (r *QueryParams) Paginate() *QueryParams {
+	var limit *CountQueryParam
+
+	if val, ok := r.params["count"]; !ok {
+		limit = &CountQueryParam{"count", []interface{}{int64(20)}}
+		r.params["count"] = limit
+	} else {
+		limit = val.(*CountQueryParam)
 	}
-	return ""
+
+	var offset *PageQueryParam
+	if val, ok := r.params["page"]; !ok {
+		offset = &PageQueryParam{"page", []interface{}{int64(1)}, limit.Count()}
+		r.params["page"] = offset
+	} else {
+		offset = val.(*PageQueryParam)
+		offset.SetCount(limit.Count())
+	}
+
+	return r
 }
 
-func (r *ParseResult) PrevPage(u *url.URL) string {
-	if r.offset.Page() > 1 {
-		u, _ := url.Parse(u.String())
-		values := u.Query()
-		values.Set("page", strconv.FormatInt(r.offset.Page() - 1, 10))
-		queryString, _ := url.QueryUnescape(values.Encode())
-		u.RawQuery = queryString
-		return u.String()
-	}
-	return ""
+func (r *QueryParams) Depaginate() *QueryParams {
+	delete(r.params, "count")
+	delete(r.params, "page")
+	return r
 }
 
-func ParseQuery(query url.Values) *ParseResult {
+func (r *QueryParams) ShallowCopy() *QueryParams {
+	params := map[string]IQueryParam{}
+	for k,v := range r.params {
+	  params[k] = v
+	}
+
+	errors := make([]error, len(r.errors), len(r.errors))
+	for i, err := range r.errors {
+		errors[i] = err
+	}
+
+	return &QueryParams{params, errors}
+}
+
+func (r *QueryParams) Query() *Query {
+	// OFFSET QUERY:
+	var offset *PageQueryParam
+	if val, ok := r.params["page"]; ok {
+		offset = val.(*PageQueryParam)
+	}
+
+	// LIMIT QUERY:
+	var limit *CountQueryParam
+
+	if val, ok := r.params["count"]; ok {
+		limit = val.(*CountQueryParam)
+	} else {
+		if offset != nil {
+			limit = &CountQueryParam{"count", []interface{}{int64(20)}}
+			offset.SetCount(limit.Count())
+		}
+	}
+
+	queryFragments := []string{}
+	values := []interface{}{}
+
+	keys := []string{}
+	for k := range r.params {
+		if k != "page" && k != "count" {
+			keys = append(keys, k)
+		}
+	}
+
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		value := r.params[key]
+		queryFragments = append(queryFragments, value.Name())
+		values = append(values, value.Values()...)
+	}
+
+	queryString := strings.Join(queryFragments, " AND ")
+	if len(queryString) > 0 {
+		queryString = fmt.Sprintf(" WHERE %s", queryString)
+	}
+
+	if limit != nil {
+		queryString = queryString + " " + limit.Name()
+		values = append(values, limit.Values()...)
+	}
+
+	if offset != nil {
+		queryString = queryString + " " + offset.Name()
+		values = append(values, offset.Values()...)
+	}
+
+	queryString = queryString + ";"
+
+	return &Query{queryString, values}
+}
+
+type Query struct {
+	query string
+	values []interface{}
+}
+
+func (r *Query) Query() string {
+	return r.query
+}
+
+func (r *Query) Values() []interface{} {
+	return r.values
+}
+
+func ParseValues(query url.Values) *QueryParams {
 	queryParams := map[string]IQueryParam{}
 	errors := []error{}
 
@@ -74,53 +168,5 @@ func ParseQuery(query url.Values) *ParseResult {
 			}
 		}
 	}
-
-	// LIMIT QUERY:
-	var limit *CountQueryParam
-
-	if val, ok := queryParams["count"]; !ok {
-		limit = &CountQueryParam{"count", []interface{}{int64(20)}}
-	} else {
-		limit = val.(*CountQueryParam)
-		delete(queryParams, "count")
-	}
-
-	// OFFSET QUERY:
-	var offset *PageQueryParam
-	if val, ok := queryParams["page"]; !ok {
-		offset = &PageQueryParam{"page", []interface{}{int64(1)}, limit.Count()}
-	} else {
-		offset = val.(*PageQueryParam)
-		offset.SetCount(limit.Count())
-		delete(queryParams, "page")
-	}
-
-	queryFragments := []string{}
-	values := []interface{}{}
-
-	keys := make([]string, len(queryParams))
-	i := 0
-	for k := range queryParams {
-	    keys[i] = k
-	    i++
-	}
-
-	sort.Strings(keys)
-
-	for _, key := range keys {
-		value := queryParams[key]
-		queryFragments = append(queryFragments, value.Name())
-		values = append(values, value.Values()...)
-	}
-
-	queryString := strings.Join(queryFragments, " AND ")
-	if len(queryString) > 0 {
-		queryString = fmt.Sprintf("WHERE %s ", queryString)
-	}
-
-	queryString = queryString + limit.Name() + " " + offset.Name() + ";"
-	values = append(values, limit.Values()...)
-	values = append(values, offset.Values()...)
-	
-	return &ParseResult{queryString, values, errors, limit, offset}
+	return &QueryParams{queryParams, errors}
 }

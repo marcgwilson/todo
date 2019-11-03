@@ -38,6 +38,8 @@ go test -run HTTP/DELETE -v
 go test -run HTTP/LIST=all -v
 
 go test -cover
+
+go test ./... -cover
 ```
 
 ## NOTES:
