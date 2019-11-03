@@ -29,17 +29,10 @@
 
 ## Tests
 ```bash
-go test 					# Run entire test suite 
-go test -run TestRegex -v 	# Run single test in verbose mode
-go test -run TestTodo -v 	# Run single test in verbose mode
-
-go test -run HTTP/DELETE -v
-
-go test -run HTTP/LIST=all -v
-
-go test -cover
-
-go test ./... -cover
+go test ./... -cover                # Run entire test suite and print coverage %
+go test -run TestTodo -v            # Run single test in verbose mode
+go test -run Handler/DELETE -v      # Run DELETE subtest
+go test -run Handler/LIST=all -v    # Run LIST=all subtest
 ```
 
 ## NOTES:

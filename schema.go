@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/xeipuuv/gojsonschema"
 
-  "time"
+	"time"
 )
 
 const CreateSchema = `{
@@ -46,7 +46,7 @@ const UpdateSchema = `{
 }`
 
 func init() {
-  gojsonschema.FormatCheckers.Add("rfc3339", RFC3339FormatChecker{})
+	gojsonschema.FormatCheckers.Add("rfc3339", RFC3339FormatChecker{})
 }
 
 var CreateValidator = gojsonschema.NewStringLoader(CreateSchema)
@@ -55,20 +55,20 @@ var UpdateValidator = gojsonschema.NewStringLoader(UpdateSchema)
 type RFC3339FormatChecker struct{}
 
 func (f RFC3339FormatChecker) IsFormat(input interface{}) bool {
-  asString, ok := input.(string)
-  if !ok {
-    return false
-  }
+	asString, ok := input.(string)
+	if !ok {
+		return false
+	}
 
-  formats := []string{
-    time.RFC3339,
-  }
+	formats := []string{
+		time.RFC3339,
+	}
 
-  for _, format := range formats {
-    if _, err := time.Parse(format, asString); err == nil {
-      return true
-    }
-  }
+	for _, format := range formats {
+		if _, err := time.Parse(format, asString); err == nil {
+			return true
+		}
+	}
 
-  return false
+	return false
 }

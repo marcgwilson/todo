@@ -20,21 +20,17 @@ func TestParam(t *testing.T) {
 	queryParams := map[string]IQueryParam{}
 
 	for key, values := range query {
-		if pm, ok := parserMap[key]; ok {
+		if parser, ok := parserMap[key]; ok {
+			if parsed, err := parser(values); err != nil {
+				t.Logf("Unrecognized key: %s", key)
+			} else {
+				queryParams[key] = parsed
 
-			a, b := pm(values)
-			if len(b) == 0 {
-				queryParams[key] = a
-
-				name := a.Name()
-				values := a.Values()
+				name := parsed.Name()
+				values := parsed.Values()
 				t.Logf("name: %s", name)
 				t.Logf("values: %#v", values)
 			}
-			t.Logf("a: %#v, b: %#v", a, b)
-			t.Logf("pm: %#v", pm)
-		} else {
-			t.Logf("Unrecognized key: %s", key)
 		}
 	}
 
@@ -57,16 +53,6 @@ func TestParam(t *testing.T) {
 		delete(queryParams, "page")
 	}
 
-	// var offset IQueryParam
-	// if val, ok := queryParams["page"]; !ok {
-	// 	offset = &PageQueryParam{"page", []interface{}{int64(0)}}
-	// } else {
-	// 	offset = val
-	// 	delete(queryParams, "page")
-	// }
-
-	
-
 	// query := ""
 	queryFragments := []string{}
 	values := []interface{}{}
@@ -81,6 +67,4 @@ func TestParam(t *testing.T) {
 	values = append(values, limit.Values()...)
 	t.Logf("dbQuery: %s", dbQuery)
 	t.Logf("values: %#v\n", values)
-	// var p IQueryParam
-	// p = &QueryParam{"due <=", 1}
 }

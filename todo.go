@@ -6,10 +6,10 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"log"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 )
 
@@ -163,7 +163,7 @@ func (r *TodoManager) Count(filter *query.Query) (int64, error) {
 	var stmt *sql.Stmt
 	var err error
 	var count int64
-	
+
 	q := "SELECT COUNT(*) FROM todo" + filter.Query()
 
 	log.Println(q)

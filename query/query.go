@@ -1,10 +1,13 @@
 package query
 
 import (
+	"github.com/marcgwilson/todo/apierror"
+
 	"fmt"
+	"net/http"
 	"net/url"
-	"strings"
 	"sort"
+	"strings"
 )
 
 func All() *Query {
@@ -13,7 +16,6 @@ func All() *Query {
 
 type QueryParams struct {
 	params map[string]IQueryParam
-	errors []error
 }
 
 func (r *QueryParams) Offset() *PageQueryParam {
@@ -32,13 +34,6 @@ func (r *QueryParams) Limit() *CountQueryParam {
 
 func (r *QueryParams) Params() map[string]IQueryParam {
 	return r.params
-}
-
-func (r *QueryParams) Errors() []error {
-	if len(r.errors) == 0 {
-		return nil
-	}
-	return r.errors
 }
 
 func (r *QueryParams) Paginate() *QueryParams {
@@ -71,16 +66,11 @@ func (r *QueryParams) Depaginate() *QueryParams {
 
 func (r *QueryParams) ShallowCopy() *QueryParams {
 	params := map[string]IQueryParam{}
-	for k,v := range r.params {
-	  params[k] = v
+	for k, v := range r.params {
+		params[k] = v
 	}
 
-	errors := make([]error, len(r.errors), len(r.errors))
-	for i, err := range r.errors {
-		errors[i] = err
-	}
-
-	return &QueryParams{params, errors}
+	return &QueryParams{params}
 }
 
 func (r *QueryParams) Query() *Query {
@@ -141,7 +131,7 @@ func (r *QueryParams) Query() *Query {
 }
 
 type Query struct {
-	query string
+	query  string
 	values []interface{}
 }
 
@@ -153,20 +143,28 @@ func (r *Query) Values() []interface{} {
 	return r.values
 }
 
-func ParseValues(query url.Values) *QueryParams {
+func ParseValues(query url.Values) (*QueryParams, *apierror.Error) {
+	var ae *apierror.Error
 	queryParams := map[string]IQueryParam{}
-	errors := []error{}
+	errors := []*apierror.ErrorDetail{}
 
 	for key, values := range query {
-		if pm, ok := parserMap[key]; ok {
-
-			a, b := pm(values)
-			if len(b) == 0 {
-				queryParams[key] = a
+		if parser, ok := parserMap[key]; ok {
+			if parsed, err := parser(values); err != nil {
+				errors = append(errors, err.Errors...)
 			} else {
-				errors = append(errors, b...)
+				queryParams[key] = parsed
 			}
 		}
 	}
-	return &QueryParams{queryParams, errors}
+
+	if len(errors) > 0 {
+		ae = &apierror.Error{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid query parameters",
+			Errors:  errors,
+		}
+	}
+
+	return &QueryParams{queryParams}, ae
 }

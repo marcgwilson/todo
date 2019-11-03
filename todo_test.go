@@ -72,7 +72,7 @@ func TestTodoManager(t *testing.T) {
 	var tds []*Todo
 
 	if tds, err = tm.Query(query.All()); err != nil {
-	// if tds, err = tm.List(nil); err != nil {
+		// if tds, err = tm.List(nil); err != nil {
 		t.Error(err)
 	} else {
 		for i, a := range tds {
@@ -106,7 +106,7 @@ func TestTodoManager(t *testing.T) {
 	}
 
 	if tds, err = tm.Query(query.All()); err != nil {
-	// if tds, err = tm.List(nil); err != nil {
+		// if tds, err = tm.List(nil); err != nil {
 		t.Error(err)
 	} else {
 		for i, a := range tds {
@@ -119,7 +119,7 @@ func TestTodoManager(t *testing.T) {
 	}
 
 	if tds, err = tm.Query(query.All()); err != nil {
-	// if tds, err = tm.List(nil); err != nil {
+		// if tds, err = tm.List(nil); err != nil {
 		t.Error(err)
 	} else {
 		for i, a := range tds {

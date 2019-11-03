@@ -22,7 +22,7 @@ func main() {
 	log.Printf("Running Todo server at %s using database %s...\n", conf.Addr(), conf.Database)
 
 	m := &TodoManager{db, conf.Limit}
-	if err := http.ListenAndServe(conf.Addr(), NewMux(m)); err != nil {
+	if err := http.ListenAndServe(conf.Addr(), NewRouter(m)); err != nil {
 		log.Fatal(err)
 	}
 }

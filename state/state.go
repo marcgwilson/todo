@@ -7,17 +7,17 @@ import (
 type State string
 
 const (
-	Todo State = "todo"
+	Todo       State = "todo"
 	InProgress State = "in_progress"
-	Done State = "done"
+	Done       State = "done"
 )
 
 var States = map[string]State{
-	"todo": Todo,
+	"todo":        Todo,
 	"in_progress": InProgress,
-	"done": Done,
+	"done":        Done,
 }
 
 func (r State) MarshalJSON() ([]byte, error) {
-  return json.Marshal(string(r))
+	return json.Marshal(string(r))
 }

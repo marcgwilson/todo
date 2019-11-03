@@ -5,8 +5,8 @@ import (
 
 	"github.com/marcgwilson/todo/state"
 
-	"reflect"
 	"net/url"
+	"reflect"
 	"testing"
 )
 
@@ -19,9 +19,9 @@ func TestParseValues(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result := ParseValues(testURL.Query())
-	if len(result.Errors()) != 0 {
-		t.Errorf("len(Errors) != 0")
+	result, ae := ParseValues(testURL.Query())
+	if ae != nil {
+		t.Errorf("Unexpected error: %s", spew.Sdump(ae))
 	}
 
 	q := result.Query()

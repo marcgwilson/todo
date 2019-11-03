@@ -41,7 +41,7 @@ func TransformState(i interface{}) (interface{}, error) {
 }
 
 var attrMap = map[string]AttrTransform{
-	"due": TransformDue,
+	"due":   TransformDue,
 	"state": TransformState,
 }
 
@@ -60,9 +60,9 @@ func (r TodoMap) Description() string {
 }
 
 type SQLData struct {
-	Names string
+	Names    string
 	Bindvars string
-	Values []interface{}
+	Values   []interface{}
 }
 
 func Transform(data TodoMap) (TodoMap, error) {

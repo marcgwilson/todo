@@ -1,10 +1,11 @@
 package main
 
 import (
-	"github.com/davecgh/go-spew/spew"
-
+	"github.com/marcgwilson/todo/apierror"
 	"github.com/marcgwilson/todo/query"
 	"github.com/marcgwilson/todo/state"
+
+	"github.com/davecgh/go-spew/spew"
 
 	"bytes"
 	"encoding/json"
@@ -17,7 +18,7 @@ import (
 	"time"
 )
 
-func TestHTTP(t *testing.T) {
+func TestHandler(t *testing.T) {
 	db, err := OpenDB(":memory:")
 
 	if err != nil {
@@ -30,7 +31,7 @@ func TestHTTP(t *testing.T) {
 
 	t.Logf("Created %d todos", len(todos))
 
-	ts := httptest.NewServer(NewMux(tm))
+	ts := httptest.NewServer(NewRouter(tm))
 	defer ts.Close()
 
 	t.Run("CREATE", testCreate(ts, tm, todos))
@@ -126,35 +127,56 @@ func testCreateErrors(ts *httptest.Server, tm *TodoManager, td TodoList) func(*t
 				"state": "invalid state",
 			},
 			map[string]interface{}{
-				"id": 1000,
+				"id":    1000,
 				"due":   time.Now(),
 				"state": state.Todo,
 			},
 		}
 
-		errors := [][]*ValidationError{
-			[]*ValidationError{
-				&ValidationError{Key: "desc", Value: "", Message: "required attribute"},
-				&ValidationError{Key: "due", Value: "", Message: "required attribute"},
-				&ValidationError{Key: "state", Value: "", Message: "required attribute"},
+		errors := []*apierror.Error{
+			&apierror.Error{
+				Code:    http.StatusBadRequest,
+				Message: "Invalid JSON",
+				Errors: []*apierror.ErrorDetail{
+					&apierror.ErrorDetail{Key: "desc", Value: "", Message: "required attribute"},
+					&apierror.ErrorDetail{Key: "due", Value: "", Message: "required attribute"},
+					&apierror.ErrorDetail{Key: "state", Value: "", Message: "required attribute"},
+				},
 			},
-			[]*ValidationError{
-				&ValidationError{Key: "due", Value: "", Message: "required attribute"},
-				&ValidationError{Key: "state", Value: "", Message: "required attribute"},
+			&apierror.Error{
+				Code:    http.StatusBadRequest,
+				Message: "Invalid JSON",
+				Errors: []*apierror.ErrorDetail{
+					&apierror.ErrorDetail{Key: "due", Value: "", Message: "required attribute"},
+					&apierror.ErrorDetail{Key: "state", Value: "", Message: "required attribute"},
+				},
 			},
 
-			[]*ValidationError{
-				&ValidationError{Key: "due", Value: "", Message: "required attribute"},
-				&ValidationError{Key: "state", Value: "invalid state", Message: "state must be one of the following: \"todo\", \"in_progress\", \"done\""},
+			&apierror.Error{
+				Code:    http.StatusBadRequest,
+				Message: "Invalid JSON",
+				Errors: []*apierror.ErrorDetail{
+					&apierror.ErrorDetail{Key: "due", Value: "", Message: "required attribute"},
+					&apierror.ErrorDetail{Key: "state", Value: "invalid state", Message: "state must be one of the following: \"todo\", \"in_progress\", \"done\""},
+				},
 			},
-			[]*ValidationError{
-				&ValidationError{Key: "desc", Value: "", Message: "required attribute"},
-				&ValidationError{Key: "due", Value: "invalid date", Message: "Does not match format 'rfc3339'"},
-				&ValidationError{Key: "state", Value: "invalid state", Message: "state must be one of the following: \"todo\", \"in_progress\", \"done\""},
+
+			&apierror.Error{
+				Code:    http.StatusBadRequest,
+				Message: "Invalid JSON",
+				Errors: []*apierror.ErrorDetail{
+					&apierror.ErrorDetail{Key: "desc", Value: "", Message: "required attribute"},
+					&apierror.ErrorDetail{Key: "due", Value: "invalid date", Message: "Does not match format 'rfc3339'"},
+					&apierror.ErrorDetail{Key: "state", Value: "invalid state", Message: "state must be one of the following: \"todo\", \"in_progress\", \"done\""},
+				},
 			},
-			[]*ValidationError{
-				&ValidationError{Key: "(root)", Value: float64(1000), Message: "Additional property id is not allowed"},
-				&ValidationError{Key: "desc", Value: "", Message: "required attribute"},
+			&apierror.Error{
+				Code:    http.StatusBadRequest,
+				Message: "Invalid JSON",
+				Errors: []*apierror.ErrorDetail{
+					&apierror.ErrorDetail{Key: "(root)", Value: float64(1000), Message: "Additional property id is not allowed"},
+					&apierror.ErrorDetail{Key: "desc", Value: "", Message: "required attribute"},
+				},
 			},
 		}
 
@@ -173,15 +195,13 @@ func testCreateErrors(ts *httptest.Server, tm *TodoManager, td TodoList) func(*t
 			if res.StatusCode != http.StatusBadRequest {
 				t.Fatalf("%d: statusCode = %d != %d", i, res.StatusCode, http.StatusBadRequest)
 			} else {
-				actual := &APIValidationError{}
-				if err = json.Unmarshal(body, &actual); err != nil {
+				actual := &apierror.Error{}
+				if err = json.Unmarshal(body, actual); err != nil {
 					t.Fatalf("%d: Error unmarshalling body: %s", i, err)
 				}
 
-				sortValidationErrors(actual.Errors)
-
-				if !reflect.DeepEqual(errors[i], actual.Errors) {
-					t.Errorf("actual.Errors: %s", spew.Sdump(actual.Errors))
+				if !reflect.DeepEqual(errors[i], actual) {
+					t.Errorf("actual.Errors: %s", spew.Sdump(actual))
 					t.Logf("expected: %s", spew.Sdump(errors[i]))
 				}
 			}
@@ -274,19 +294,27 @@ func testUpdateErrors(ts *httptest.Server, tm *TodoManager, td TodoList) func(*t
 				"state": "invalid state",
 			},
 			map[string]interface{}{
-				"id": 1000,
+				"id":    1000,
 				"due":   time.Now(),
 				"state": state.Todo,
 			},
 		}
 
-		errors := [][]*ValidationError{
-			[]*ValidationError{
-				&ValidationError{Key: "due", Value: "invalid date", Message: "Does not match format 'rfc3339'"},
-				&ValidationError{Key: "state", Value: "invalid state", Message: "state must be one of the following: \"todo\", \"in_progress\", \"done\""},
+		errors := []*apierror.Error{
+			&apierror.Error{
+				Code:    http.StatusBadRequest,
+				Message: "Invalid JSON",
+				Errors: []*apierror.ErrorDetail{
+					&apierror.ErrorDetail{Key: "due", Value: "invalid date", Message: "Does not match format 'rfc3339'"},
+					&apierror.ErrorDetail{Key: "state", Value: "invalid state", Message: "state must be one of the following: \"todo\", \"in_progress\", \"done\""},
+				},
 			},
-			[]*ValidationError{
-				&ValidationError{Key: "(root)", Value: float64(1000), Message: "Additional property id is not allowed"},
+			&apierror.Error{
+				Code:    http.StatusBadRequest,
+				Message: "Invalid JSON",
+				Errors: []*apierror.ErrorDetail{
+					&apierror.ErrorDetail{Key: "(root)", Value: float64(1000), Message: "Additional property id is not allowed"},
+				},
 			},
 		}
 
@@ -314,13 +342,12 @@ func testUpdateErrors(ts *httptest.Server, tm *TodoManager, td TodoList) func(*t
 			if res.StatusCode != http.StatusBadRequest {
 				t.Fatalf("statusCode = %d != %d", res.StatusCode, http.StatusBadRequest)
 			} else {
-				actual := &APIValidationError{}
-				if err = json.Unmarshal(body, &actual); err != nil {
+				actual := &apierror.Error{}
+				if err = json.Unmarshal(body, actual); err != nil {
 					t.Fatalf("Error unmarshalling body: %s", err)
 				} else {
-					sortValidationErrors(actual.Errors)
-					if !reflect.DeepEqual(errors[i], actual.Errors) {
-						t.Errorf("actual.Errors: %s", spew.Sdump(actual.Errors))
+					if !reflect.DeepEqual(errors[i], actual) {
+						t.Errorf("actual.Errors: %s", spew.Sdump(actual))
 						t.Logf("expected: %s", spew.Sdump(errors[i]))
 					}
 				}
@@ -371,11 +398,9 @@ func testRetrieve(ts *httptest.Server, tm *TodoManager, td TodoList) func(*testi
 		body, err = ioutil.ReadAll(res.Body)
 		res.Body.Close()
 
-		expectedError := []*APIError{
-			&APIError{
-				Code:    http.StatusNotFound,
-				Message: "Not found",
-			},
+		expectedError := &apierror.Error{
+			Code:    http.StatusNotFound,
+			Message: "Not found",
 		}
 
 		if res.StatusCode != http.StatusNotFound {
@@ -385,16 +410,15 @@ func testRetrieve(ts *httptest.Server, tm *TodoManager, td TodoList) func(*testi
 		if err != nil {
 			t.Fatal(err)
 		} else {
-			actual := []*APIError{}
-			if err = json.Unmarshal(body, &actual); err != nil {
+			actual := &apierror.Error{}
+			if err = json.Unmarshal(body, actual); err != nil {
 				t.Fatalf("Error unmarshalling body: %s", err)
 			}
 
 			if !reflect.DeepEqual(expectedError, actual) {
-				for _, elem := range actual {
-					t.Logf("%#v", elem)
-				}
 				t.Error("expected != actual")
+				t.Logf("expected: %s", spew.Sdump(expected))
+				t.Logf("actual: %s", spew.Sdump(actual))
 			}
 		}
 	}
@@ -427,7 +451,7 @@ func testList(ts *httptest.Server, tm *TodoManager, td TodoList) func(*testing.T
 			t.Errorf("res.StatusCode == %d", res.StatusCode)
 			t.Logf("body: %s", string(body))
 		} else {
-			result := &PaginatedResult{}
+			result := &PaginatedResponse{}
 			if err = json.Unmarshal(body, result); err != nil {
 				t.Fatal(err)
 			}
@@ -470,12 +494,12 @@ func listFilterState(ts *httptest.Server, tm *TodoManager, td TodoList) func(*te
 			t.Logf("body: %s", string(body))
 		} else {
 
-			result := &PaginatedResult{}
+			result := &PaginatedResponse{}
 			if err = json.Unmarshal(body, result); err != nil {
 				t.Fatal(err)
 			}
 
-            expectedNext := "/?page=3&state=todo&state=done"
+			expectedNext := "/?page=3&state=todo&state=done"
 			if result.Next != expectedNext {
 				t.Errorf("result.Next = %s != %s", result.Next, expectedNext)
 			}
@@ -490,7 +514,7 @@ func listFilterState(ts *httptest.Server, tm *TodoManager, td TodoList) func(*te
 			// 	t.Errorf("expected: %s", spew.Sdump(expected))
 			// 	// t.Errorf("slices not equal len(actual) = %d, len(expected) = %d", len(result.Results), len(expected))
 			// }
-			
+
 			if len(result.Results) != 20 {
 				t.Errorf("len(result.Results = %d", len(result.Results))
 			}
@@ -523,12 +547,12 @@ func listFilterDue(ts *httptest.Server, tm *TodoManager, td TodoList) func(*test
 			t.Logf("body: %s", string(body))
 		} else {
 
-			result := &PaginatedResult{}
+			result := &PaginatedResponse{}
 			if err = json.Unmarshal(body, result); err != nil {
 				t.Fatal(err)
 			}
 
-            expectedNext := fmt.Sprintf("/?due:gt=%s&due:lt=%s&page=2", gte.Format(time.RFC3339), lte.Format(time.RFC3339))
+			expectedNext := fmt.Sprintf("/?due:gt=%s&due:lt=%s&page=2", gte.Format(time.RFC3339), lte.Format(time.RFC3339))
 
 			if result.Next != expectedNext {
 				t.Errorf("result.Next = %s != %s", result.Next, expectedNext)
@@ -622,24 +646,24 @@ func testDeleteErrors(ts *httptest.Server, tm *TodoManager, td TodoList) func(*t
 			t.Errorf("%d != %d", res.StatusCode, http.StatusNotFound)
 		}
 
-		expected := []*APIError{
-			&APIError{
-				Code:    http.StatusNotFound,
-				Message: "Not found",
-			},
+		expected := &apierror.Error{
+			Code:    http.StatusNotFound,
+			Message: "Not found",
 		}
 
 		defer res.Body.Close()
 		if body, err = ioutil.ReadAll(res.Body); err != nil {
 			t.Fatal(err)
 		} else {
-			actual := []*APIError{}
-			if err = json.Unmarshal(body, &actual); err != nil {
+			actual := &apierror.Error{}
+			if err = json.Unmarshal(body, actual); err != nil {
 				t.Fatalf("Error unmarshalling body: %s", err)
 			}
 
 			if !reflect.DeepEqual(expected, actual) {
 				t.Error("expected != actual")
+				t.Logf("expected: %s", spew.Sdump(expected))
+				t.Logf("actual: %s", spew.Sdump(actual))
 			}
 		}
 	}
