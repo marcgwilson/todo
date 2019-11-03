@@ -19,7 +19,7 @@ func main() {
 
 	defer db.Close()
 
-	log.Printf("Starting Todo server at %s using database %s\n", conf.Addr(), conf.Database)
+	log.Printf("Running Todo server at %s using database %s...\n", conf.Addr(), conf.Database)
 
 	m := &TodoManager{db, conf.Limit}
 	if err := http.ListenAndServe(conf.Addr(), NewMux(m)); err != nil {

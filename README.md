@@ -34,6 +34,9 @@ go test -run TestRegex -v 	# Run single test in verbose mode
 go test -run TestTodo -v 	# Run single test in verbose mode
 
 go test -run HTTP/DELETE -v
+
+go test -run HTTP/LIST=all -v
+
 go test -cover
 ```
 

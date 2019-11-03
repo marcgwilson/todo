@@ -1,10 +1,12 @@
 package main
 
 import (
+	"github.com/marcgwilson/todo/query"
 	"github.com/marcgwilson/todo/state"
 
 	_ "github.com/mattn/go-sqlite3"
 
+	"log"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -117,20 +119,25 @@ func (r *TodoManager) Get(id int64) (*Todo, error) {
 	}
 }
 
-func (r *TodoManager) List(filter *PaginatedFilter) (TodoList, error) {
+func (r *TodoManager) Query(filter *query.ParseResult) (TodoList, error) {
+	var stmt *sql.Stmt
 	var rows *sql.Rows
 	var err error
 
-	q := "SELECT rowid, desc, due, state FROM todo"
-	if filter != nil {
-		q = q + filter.String()
-	} else {
-		q = q + ";"
-	}
+	q := "SELECT rowid, desc, due, state FROM todo " + filter.Query()
 
-	if rows, err = r.Database.Query(q); err != nil {
+	// log.Println(q)
+	// log.Printf("%#v\n", filter.Values())
+
+	if stmt, err = r.Database.Prepare(q); err != nil {
 		return nil, err
 	}
+	defer stmt.Close()
+
+	if rows, err = stmt.Query(filter.Values()...); err != nil {
+		return nil, err
+	}
+
 	defer rows.Close()
 
 	results := []*Todo{}
@@ -153,19 +160,22 @@ func (r *TodoManager) List(filter *PaginatedFilter) (TodoList, error) {
 	return results, nil
 }
 
-func (r *TodoManager) Count(filter *PaginatedFilter) (int, error) {
-	var count int
+func (r *TodoManager) Count(filter *query.ParseResult) (int, error) {
+	var stmt *sql.Stmt
 	var err error
+	var count int
+	
+	q := "SELECT COUNT(*) FROM todo " + filter.Query()
 
-	q := "SELECT COUNT(*) FROM todo"
+	log.Println(q)
+	log.Printf("%#v\n", filter.Values())
 
-	if filter != nil {
-		q = q + filter.String()
-	} else {
-		q = q + ";"
+	if stmt, err = r.Database.Prepare(q); err != nil {
+		return 0, err
 	}
+	defer stmt.Close()
 
-	row := r.Database.QueryRow(q)
+	row := stmt.QueryRow(filter.Values()...)
 
 	err = row.Scan(&count)
 	return count, err
@@ -233,8 +243,7 @@ func (r *TodoManager) Create(data map[string]interface{}) (*Todo, error) {
 
 func (r *TodoManager) Update(id int64, data map[string]interface{}) (*Todo, error) {
 	var err error
-	var todo *Todo = nil
-
+	var todo *Todo
 	var tx *sql.Tx
 	var stmt *sql.Stmt
 

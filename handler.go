@@ -1,14 +1,16 @@
 package main
 
 import (
+	"github.com/marcgwilson/todo/query"
+
 	"github.com/gorilla/mux"
 	"github.com/xeipuuv/gojsonschema"
 
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strconv"
+	"log"
 )
 
 type Handler struct {
@@ -57,45 +59,59 @@ func (r *Handler) ListFunc() http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
 
-		if q, err := ParseFilter(req.URL.Query()); err != nil {
+		result := query.ParseQuery(req.URL.Query())
+		if result.Errors() != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(err)
+			json.NewEncoder(w).Encode(result.Errors()[0])
 		} else {
-			if list, err := r.TM.List(q); err != nil {
+			if list, err := r.TM.Query(result); err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				e := []*APIError{&APIError{Code: http.StatusBadRequest, Message: err.Error()}}
 				json.NewEncoder(w).Encode(e)
 			} else {
+				var next = ""
+				var prev = ""
+				var count = 0
 
-				log.Printf("req: %#v\n", req.Host)
-				log.Printf("protocol: %s\n", req.Proto)
-				
-				next := ""
-				previous := ""
-
-				countQuery := q.Copy()
-				countQuery.Page = 1
-				countQuery.Limit = 0
-
-				pageNum := q.Page
-
-				if count, err := r.TM.Count(countQuery); err != nil {
-					log.Printf("Error querying count: %s", err)
+				if count, err = r.TM.Count(result); err != nil {
+					log.Printf("r.TM.Count: %s", err)
 				} else {
-					if q.Offset()+q.Limit < count {
-						urlQuery := CopyValues(req.URL.Query())
-						urlQuery.Set("page", strconv.Itoa(pageNum+1))
-						next = urlQuery.Encode()
-					}
-
-					if q.Offset() > 0 {
-						urlQuery := CopyValues(req.URL.Query())
-						urlQuery.Set("page", strconv.Itoa(pageNum-1))
-						previous = urlQuery.Encode()
-					}
+					next = result.NextPage(req.URL, int64(count))
 				}
+				
+				prev = result.PrevPage(req.URL)
+				// log.Printf("prev: %s", prev)
+				// log.Printf("next: %s", next)
+				// log.Printf("curr: %s", req.URL.RawQuery)
 
-				result := &PaginatedResult{Next: next, Previous: previous, Results: list}
+
+				
+				// next := ""
+				// previous := ""
+
+				// countQuery := q.Copy()
+				// countQuery.Page = 1
+				// countQuery.Limit = 0
+
+				// pageNum := q.Page
+
+				// if count, err := r.TM.Count(countQuery); err != nil {
+				// 	log.Printf("Error querying count: %s", err)
+				// } else {
+				// 	if q.Offset()+q.Limit < count {
+				// 		urlQuery := query.CopyValues(req.URL.Query())
+				// 		urlQuery.Set("page", strconv.Itoa(pageNum+1))
+				// 		next = urlQuery.Encode()
+				// 	}
+
+				// 	if q.Offset() > 0 {
+				// 		urlQuery := query.CopyValues(req.URL.Query())
+				// 		urlQuery.Set("page", strconv.Itoa(pageNum-1))
+				// 		previous = urlQuery.Encode()
+				// 	}
+				// }
+
+				result := &PaginatedResult{Next: next, Previous: prev, Results: list}
 				w.WriteHeader(http.StatusOK)
 				json.NewEncoder(w).Encode(result)
 			}

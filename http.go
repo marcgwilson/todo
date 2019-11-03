@@ -2,6 +2,8 @@ package main
 
 import (
 	"github.com/gorilla/mux"
+
+	"sort"
 )
 
 type APIError struct {
@@ -19,6 +21,16 @@ type ValidationError struct {
 	Key     string      `json:"key"`
 	Value   interface{} `json:"value"`
 	Message string      `json:"message"`
+}
+
+type sortByKey []*ValidationError
+
+func (r sortByKey) Len() int           { return len(r) }
+func (r sortByKey) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
+func (r sortByKey) Less(i, j int) bool { return r[i].Key < r[j].Key }
+
+func sortValidationErrors(values []*ValidationError) {
+	sort.Sort(sortByKey(values))
 }
 
 type PaginatedResult struct {
