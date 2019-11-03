@@ -71,22 +71,18 @@ func (r *Handler) ListFunc() http.HandlerFunc {
 				e := []*APIError{&APIError{Code: http.StatusBadRequest, Message: err.Error()}}
 				json.NewEncoder(w).Encode(e)
 			} else {
-				var next = ""
-				var prev = ""
-				var count int64 = 0
-
+				pr := &PaginatedResult{Results: list}
 				rc := result.ShallowCopy().Depaginate()
 				qc := rc.Query()
-				if count, err = r.TM.Count(qc); err != nil {
+				if count, err := r.TM.Count(qc); err != nil {
 					log.Printf("ERROR: r.TM.Count: %s", err)
 				} else {
-					next = query.NextPage(result, req.URL, count)
+					pr.Next = query.NextPage(result, req.URL, count)
 				}
 				
-				prev = query.PrevPage(result, req.URL)
-				result := &PaginatedResult{Next: next, Previous: prev, Results: list}
+				pr.Previous = query.PrevPage(result, req.URL)
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(result)
+				json.NewEncoder(w).Encode(pr)
 			}
 		}
 	}
