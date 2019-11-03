@@ -100,37 +100,6 @@ func testCreate(ts *httptest.Server, tm *TodoManager, td TodoList) func(*testing
 				}
 			}
 		}
-
-		// p := map[string]interface{}{
-		// 	"desc":  "Created TODO",
-		// 	"due":   time.Now(),
-		// 	"state": state.Todo,
-		// }
-
-		// if payload, err = json.Marshal(p); err != nil {
-		// 	t.Fatal(err)
-		// }
-
-		// if res, err = client.Post(ts.URL, "application/json", bytes.NewBuffer(payload)); err != nil {
-		// 	t.Fatal(err)
-		// }
-
-		// body, err = ioutil.ReadAll(res.Body)
-		// res.Body.Close()
-
-		// if err != nil {
-		// 	t.Fatal(err)
-		// } else {
-		// 	if actual, err = UnmarshalTodo(body); err != nil {
-		// 		t.Fatal(err)
-		// 	}
-
-		// 	if expected, err = tm.Get(actual.ID); err != nil {
-		// 		t.Error(err)
-		// 	} else if !expected.Equals(actual) {
-		// 		t.Errorf("expected != actual: %#v != %#v", expected, actual)
-		// 	}
-		// }
 	}
 }
 
@@ -156,6 +125,11 @@ func testCreateErrors(ts *httptest.Server, tm *TodoManager, td TodoList) func(*t
 				"due":   "invalid date",
 				"state": "invalid state",
 			},
+			map[string]interface{}{
+				"id": 1000,
+				"due":   time.Now(),
+				"state": state.Todo,
+			},
 		}
 
 		errors := [][]*ValidationError{
@@ -175,8 +149,12 @@ func testCreateErrors(ts *httptest.Server, tm *TodoManager, td TodoList) func(*t
 			},
 			[]*ValidationError{
 				&ValidationError{Key: "desc", Value: "", Message: "required attribute"},
-				&ValidationError{Key: "due", Value: "invalid date", Message: "Does not match format 'date-time'"},
+				&ValidationError{Key: "due", Value: "invalid date", Message: "Does not match format 'rfc3339'"},
 				&ValidationError{Key: "state", Value: "invalid state", Message: "state must be one of the following: \"todo\", \"in_progress\", \"done\""},
+			},
+			[]*ValidationError{
+				&ValidationError{Key: "(root)", Value: float64(1000), Message: "Additional property id is not allowed"},
+				&ValidationError{Key: "desc", Value: "", Message: "required attribute"},
 			},
 		}
 
@@ -290,47 +268,61 @@ func testUpdateErrors(ts *httptest.Server, tm *TodoManager, td TodoList) func(*t
 
 		updateID := todo.ID
 
-		p := map[string]interface{}{
-			"due":   "invalid date",
-			"state": "invalid state",
+		cases := []map[string]interface{}{
+			map[string]interface{}{
+				"due":   "invalid date",
+				"state": "invalid state",
+			},
+			map[string]interface{}{
+				"id": 1000,
+				"due":   time.Now(),
+				"state": state.Todo,
+			},
 		}
 
-		expectedErrors := []*ValidationError{
-			&ValidationError{Key: "due", Value: "invalid date", Message: "Does not match format 'date-time'"},
-			&ValidationError{Key: "state", Value: "invalid state", Message: "state must be one of the following: \"todo\", \"in_progress\", \"done\""},
+		errors := [][]*ValidationError{
+			[]*ValidationError{
+				&ValidationError{Key: "due", Value: "invalid date", Message: "Does not match format 'rfc3339'"},
+				&ValidationError{Key: "state", Value: "invalid state", Message: "state must be one of the following: \"todo\", \"in_progress\", \"done\""},
+			},
+			[]*ValidationError{
+				&ValidationError{Key: "(root)", Value: float64(1000), Message: "Additional property id is not allowed"},
+			},
 		}
 
-		if payload, err = json.Marshal(p); err != nil {
-			t.Fatal(err)
-		}
+		for i, c := range cases {
+			if payload, err = json.Marshal(c); err != nil {
+				t.Fatal(err)
+			}
 
-		url := fmt.Sprintf("%s/%d/", ts.URL, updateID)
+			url := fmt.Sprintf("%s/%d/", ts.URL, updateID)
 
-		client := ts.Client()
+			client := ts.Client()
 
-		req, err = http.NewRequest("PATCH", url, bytes.NewBuffer(payload))
-		if err != nil {
-			t.Fatal(err)
-		}
+			req, err = http.NewRequest("PATCH", url, bytes.NewBuffer(payload))
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		if res, err = client.Do(req); err != nil {
-			t.Fatal(err)
-		}
+			if res, err = client.Do(req); err != nil {
+				t.Fatal(err)
+			}
 
-		body, err = ioutil.ReadAll(res.Body)
-		res.Body.Close()
+			body, err = ioutil.ReadAll(res.Body)
+			res.Body.Close()
 
-		if res.StatusCode != http.StatusBadRequest {
-			t.Fatalf("statusCode = %d != %d", res.StatusCode, http.StatusBadRequest)
-		} else {
-			actual := &APIValidationError{}
-			if err = json.Unmarshal(body, &actual); err != nil {
-				t.Fatalf("Error unmarshalling body: %s", err)
+			if res.StatusCode != http.StatusBadRequest {
+				t.Fatalf("statusCode = %d != %d", res.StatusCode, http.StatusBadRequest)
 			} else {
-				sortValidationErrors(actual.Errors)
-				if !reflect.DeepEqual(expectedErrors, actual.Errors) {
-					t.Errorf("actual.Errors: %s", spew.Sdump(actual.Errors))
-					t.Logf("expected: %s", spew.Sdump(expectedErrors))
+				actual := &APIValidationError{}
+				if err = json.Unmarshal(body, &actual); err != nil {
+					t.Fatalf("Error unmarshalling body: %s", err)
+				} else {
+					sortValidationErrors(actual.Errors)
+					if !reflect.DeepEqual(errors[i], actual.Errors) {
+						t.Errorf("actual.Errors: %s", spew.Sdump(actual.Errors))
+						t.Logf("expected: %s", spew.Sdump(errors[i]))
+					}
 				}
 			}
 		}
@@ -453,7 +445,6 @@ func testList(ts *httptest.Server, tm *TodoManager, td TodoList) func(*testing.T
 			if !expected.Equals(result.Results) {
 				t.Errorf("actual: %s", spew.Sdump(result.Results))
 				t.Errorf("expected: %s", spew.Sdump(expected))
-				// t.Errorf("slices not equal len(actual) = %d, len(expected) = %d", len(result.Results), len(expected))
 			}
 		}
 	}
