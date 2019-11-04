@@ -4,8 +4,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func NewRouter(tm *TodoManager) *mux.Router {
-	h := NewHandler(tm)
+func NewRouter(h *Handler) *mux.Router {
 	r := mux.NewRouter()
 	r.HandleFunc("/", h.CreateFunc()).Methods("POST")
 	r.HandleFunc("/", h.ListFunc()).Methods("GET")

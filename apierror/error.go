@@ -29,6 +29,7 @@ func sortValidationErrors(values []*ErrorDetail) {
 	sort.Sort(sortByKey(values))
 }
 
+// NewJSONError creates an apierror.Error object from a gojsonschema.ResultError slice.
 func NewJSONError(errorList []gojsonschema.ResultError) *Error {
 	errors := make([]*ErrorDetail, len(errorList), len(errorList))
 	for index, error := range errorList {

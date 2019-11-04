@@ -45,19 +45,22 @@ func filterTodoWithURLString(t *testing.T, tm *TodoManager, urlString string) To
 }
 
 func TestHandler(t *testing.T) {
-	db, err := OpenDB(":memory:")
+	config := &Config{Database: ":memory:", Port:0, Limit: 20}
+
+	db, err := OpenDB(config.Database)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	tm := &TodoManager{db, 20}
+	tm := &TodoManager{db}
+	h := NewHandler(tm, config)
 
 	todos := GenerateTodos(100, tm)
 
 	t.Logf("Created %d todos", len(todos))
 
-	ts := httptest.NewServer(NewRouter(tm))
+	ts := httptest.NewServer(NewRouter(h))
 	defer ts.Close()
 
 	t.Run("CREATE", testCreate(ts, tm, todos))

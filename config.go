@@ -9,7 +9,7 @@ import (
 type Config struct {
 	Database string
 	Port     int
-	Limit    int
+	Limit    int64
 }
 
 func (r *Config) Addr() string {
@@ -21,7 +21,7 @@ func LookupConfig() (*Config, error) {
 
 	database := "todo.db"
 	port := 8000
-	limit := 20
+	limit := int64(20)
 
 	if env, ok := os.LookupEnv("TODO_DB"); ok {
 		database = env
@@ -34,7 +34,7 @@ func LookupConfig() (*Config, error) {
 	}
 
 	if env, ok := os.LookupEnv("TODO_LIMIT"); ok {
-		if limit, err = strconv.Atoi(env); err != nil {
+		if limit, err = strconv.ParseInt(env, 10, 64); err != nil {
 			return nil, fmt.Errorf("Error parsing TODO_LIMIT: %s", env)
 		}
 	}

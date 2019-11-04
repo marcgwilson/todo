@@ -33,7 +33,7 @@ func TestTodoManager(t *testing.T) {
 
 	defer db.Close()
 
-	tm := &TodoManager{db, 20}
+	tm := &TodoManager{db}
 
 	expected := &Todo{
 		ID:          0,

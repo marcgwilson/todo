@@ -75,6 +75,10 @@ Empty response body
 
 ## Tests
 ```bash
+go test -covermode=count -coverprofile=count.out ./...
+go tool cover -func=count.out       # Display coverage info in shell
+go tool cover -html=count.out       # Display coverage info in browser
+
 go test ./... -cover                # Run entire test suite and print coverage %
 go test -run TestTodo -v            # Run single test in verbose mode
 go test -run Handler/DELETE -v      # Run DELETE subtest

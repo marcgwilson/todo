@@ -88,11 +88,10 @@ func UnmarshalTodoList(b []byte) (TodoList, error) {
 
 type TodoManager struct {
 	Database *sql.DB
-	Limit    int
 }
 
-func NewManager(db *sql.DB, limit int) *TodoManager {
-	return &TodoManager{db, limit}
+func NewManager(db *sql.DB) *TodoManager {
+	return &TodoManager{db}
 }
 
 func (r *TodoManager) Get(id int64) (*Todo, error) {

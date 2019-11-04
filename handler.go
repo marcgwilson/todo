@@ -38,11 +38,12 @@ func (r *PaginatedResponse) Equal(t *PaginatedResponse) bool {
 
 type Handler struct {
 	TM              *TodoManager
+	Config 			*Config
 	CreateValidator *gojsonschema.Schema
 	UpdateValidator *gojsonschema.Schema
 }
 
-func NewHandler(tm *TodoManager) *Handler {
+func NewHandler(tm *TodoManager, config *Config) *Handler {
 	var createSchema *gojsonschema.Schema
 	var updateSchema *gojsonschema.Schema
 	var err error
@@ -58,6 +59,7 @@ func NewHandler(tm *TodoManager) *Handler {
 
 	return &Handler{
 		tm,
+		config,
 		createSchema,
 		updateSchema,
 	}
@@ -85,7 +87,7 @@ func (r *Handler) ListFunc() http.HandlerFunc {
 			w.WriteHeader(err.Code)
 			json.NewEncoder(w).Encode(err)
 		} else {
-			result.Paginate()
+			result.Paginate(r.Config.Limit)
 
 			q := result.Query()
 			if list, err := r.TM.Query(q); err != nil {

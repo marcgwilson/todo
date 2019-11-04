@@ -36,11 +36,11 @@ func (r *QueryParams) Params() map[string]IQueryParam {
 	return r.params
 }
 
-func (r *QueryParams) Paginate() *QueryParams {
+func (r *QueryParams) Paginate(count int64) *QueryParams {
 	var limit *CountQueryParam
 
 	if val, ok := r.params["count"]; !ok {
-		limit = &CountQueryParam{"count", []interface{}{int64(20)}}
+		limit = &CountQueryParam{"count", []interface{}{count}} //int64(20)}}
 		r.params["count"] = limit
 	} else {
 		limit = val.(*CountQueryParam)
@@ -85,12 +85,14 @@ func (r *QueryParams) Query() *Query {
 
 	if val, ok := r.params["count"]; ok {
 		limit = val.(*CountQueryParam)
-	} else {
-		if offset != nil {
-			limit = &CountQueryParam{"count", []interface{}{int64(20)}}
-			offset.SetCount(limit.Count())
-		}
 	}
+
+	// else {
+	// 	if offset != nil {
+	// 		limit = &CountQueryParam{"count", []interface{}{int64(20)}}
+	// 		offset.SetCount(limit.Count())
+	// 	}
+	// }
 
 	queryFragments := []string{}
 	values := []interface{}{}
