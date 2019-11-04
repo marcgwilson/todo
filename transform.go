@@ -17,13 +17,13 @@ func TransformDue(i interface{}) (interface{}, error) {
 	case int64:
 		return v, nil
 	case string:
-		if t, err := time.Parse(time.RFC3339, v); err != nil {
+		if t, err := time.Parse(time.RFC3339Nano, v); err != nil {
 			return nil, fmt.Errorf("Invalid datetime format")
 		} else {
-			return t.Unix(), nil
+			return t, nil
 		}
 	case time.Time:
-		return v.Unix(), nil
+		return v, nil
 	default:
 		return v, fmt.Errorf("Invalid type")
 	}
@@ -52,7 +52,12 @@ func (r TodoMap) State() state.State {
 }
 
 func (r TodoMap) Due() time.Time {
-	return time.Unix(r["due"].(int64), 0)
+	switch v := r["due"].(type) {
+	case time.Time:
+		return v
+	default:
+		return time.Unix(0, v.(int64))
+	}
 }
 
 func (r TodoMap) Description() string {

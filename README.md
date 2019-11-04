@@ -27,6 +27,52 @@
 | **`page`**         | **int**                    |
 | **`count`**        | **int**                    |
 
+## Response Body
+### List
+```json
+{
+  "next": "/?page=2&state=todo",
+  "previous": "",
+  "results": [
+        {
+            "id": 1,
+            "desc": "My Todo",
+            "due": "2019-11-12T06:14:11Z",
+            "state": "todo"
+        }
+    ]
+}
+```
+
+### Create, Update, Retrive
+```json
+{
+  "id": 88,
+  "desc": "In progress TODO",
+  "due": "2019-11-13T23:50:33Z",
+  "state": "in_progress"
+}
+```
+
+### Delete
+Empty response body
+
+
+### Error
+```json
+{
+  "code": 400,
+  "message": "Invalid JSON",
+  "errors": [
+    {
+      "key": "due",
+      "value": "gabagoo",
+      "message": "Does not match format 'rfc3339'"
+    }
+  ]
+}
+```
+
 ## Tests
 ```bash
 go test ./... -cover                # Run entire test suite and print coverage %
@@ -36,4 +82,6 @@ go test -run Handler/LIST=all -v    # Run LIST=all subtest
 ```
 
 ## NOTES:
-Comparing Due dates with time.Unix(). Fix!
+~~Comparing Due dates with time.Unix(). Fix!~~  
+If the declared column type is `TIMESTAMP`, `go-sqlite3` attemps to handle `time.Time` instances for you. `INSERT` and `UPDATE` operations convert `time.Time` to `UTC`; however, `SELECT` queries do not perform this conversion automatically. See [sqlite3 doesn't have datetime/timestamp types #748](https://github.com/mattn/go-sqlite3/issues/748)  
+

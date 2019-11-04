@@ -15,7 +15,7 @@ import (
 
 var CreateStmt = `CREATE TABLE IF NOT EXISTS todo (
     desc TEXT,
-    due INTEGER,
+    due TIMESTAMP,
     state TEXT
 );`
 
@@ -26,7 +26,7 @@ type Todo struct {
 	State       state.State `db:"state" json:"state"`
 }
 
-func (r *Todo) Equals(t *Todo) bool {
+func (r *Todo) Equal(t *Todo) bool {
 	if r.ID != t.ID {
 		return false
 	}
@@ -35,7 +35,7 @@ func (r *Todo) Equals(t *Todo) bool {
 		return false
 	}
 
-	if r.Due.Unix() != t.Due.Unix() {
+	if !r.Due.Equal(t.Due) {
 		return false
 	}
 
@@ -48,13 +48,13 @@ func (r *Todo) Equals(t *Todo) bool {
 
 type TodoList []*Todo
 
-func (r TodoList) Equals(t TodoList) bool {
+func (r TodoList) Equal(t TodoList) bool {
 	if len(r) != len(t) {
 		return false
 	}
 
 	for i, elem := range r {
-		if !elem.Equals(t[i]) {
+		if !elem.Equal(t[i]) {
 			return false
 		}
 	}
@@ -108,14 +108,12 @@ func (r *TodoManager) Get(id int64) (*Todo, error) {
 	t := &Todo{}
 	row = stmt.QueryRow(id)
 
-	var due int64
-	err = row.Scan(&t.ID, &t.Description, &due, &t.State)
+	err = row.Scan(&t.ID, &t.Description, &t.Due, &t.State)
 	if err != nil {
 		return nil, err
-	} else {
-		t.Due = time.Unix(due, 0)
-		return t, nil
 	}
+
+	return t, nil
 }
 
 func (r *TodoManager) Query(filter *query.Query) (TodoList, error) {
@@ -143,12 +141,10 @@ func (r *TodoManager) Query(filter *query.Query) (TodoList, error) {
 
 	for rows.Next() {
 		t := &Todo{}
-		var d int64
-		if err = rows.Scan(&t.ID, &t.Description, &d, &t.State); err != nil {
+		if err = rows.Scan(&t.ID, &t.Description, &t.Due, &t.State); err != nil {
 			return nil, err
 		}
 
-		t.Due = time.Unix(d, 0)
 		results = append(results, t)
 	}
 

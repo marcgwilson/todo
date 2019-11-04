@@ -59,10 +59,10 @@ func DueDateParser(param string) ParamListParser {
 		errors := []*apierror.ErrorDetail{}
 
 		for _, value := range values {
-			if t, err := time.Parse(time.RFC3339, value); err != nil {
+			if t, err := time.Parse(time.RFC3339Nano, value); err != nil {
 				errors = append(errors, &apierror.ErrorDetail{Key: param, Value: value, Message: TimeErrorMessage})
 			} else {
-				results = append(results, t.Unix())
+				results = append(results, t.UTC()) //t.UnixNano()) //t.Unix())
 			}
 		}
 

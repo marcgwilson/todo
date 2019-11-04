@@ -96,7 +96,7 @@ func testCreate(ts *httptest.Server, tm *TodoManager, td TodoList) func(*testing
 
 				if expected, err = tm.Get(actual.ID); err != nil {
 					t.Error(err)
-				} else if !expected.Equals(actual) {
+				} else if !expected.Equal(actual) {
 					t.Errorf("expected != actual: %#v != %#v", expected, actual)
 				}
 			}
@@ -258,7 +258,7 @@ func testUpdate(ts *httptest.Server, tm *TodoManager, td TodoList) func(*testing
 			if actual, err = UnmarshalTodo(body); err != nil {
 				t.Fatal(err)
 			} else {
-				if !expected.Equals(actual) {
+				if !expected.Equal(actual) {
 					t.Errorf("expected != actual")
 				}
 			}
@@ -278,7 +278,7 @@ func testUpdateErrors(ts *httptest.Server, tm *TodoManager, td TodoList) func(*t
 
 		data := map[string]interface{}{
 			"desc":  "DELETE Todo",
-			"due":   time.Now().UTC().Format(time.RFC3339),
+			"due":   time.Now().UTC().Format(time.RFC3339Nano),
 			"state": "in_progress",
 		}
 
@@ -383,7 +383,7 @@ func testRetrieve(ts *httptest.Server, tm *TodoManager, td TodoList) func(*testi
 			if actual, err := UnmarshalTodo(body); err != nil {
 				t.Errorf("UnmarshalTodo: %s", err)
 			} else {
-				if !expected.Equals(actual) {
+				if !expected.Equal(actual) {
 					t.Errorf("expected != actual: %#v != %#v", expected, actual)
 				}
 			}
@@ -466,7 +466,7 @@ func testList(ts *httptest.Server, tm *TodoManager, td TodoList) func(*testing.T
 				t.Errorf("result.Previous = %s != %s", result.Previous, expectedPrevious)
 			}
 
-			if !expected.Equals(result.Results) {
+			if !expected.Equal(result.Results) {
 				t.Errorf("actual: %s", spew.Sdump(result.Results))
 				t.Errorf("expected: %s", spew.Sdump(expected))
 			}
@@ -509,7 +509,7 @@ func listFilterState(ts *httptest.Server, tm *TodoManager, td TodoList) func(*te
 				t.Errorf("result.Previous = %s != %s", result.Previous, expectedPrevious)
 			}
 
-			// if !expected.Equals(result.Results) {
+			// if !expected.Equal(result.Results) {
 			// 	t.Errorf("actual: %s", spew.Sdump(result.Results))
 			// 	t.Errorf("expected: %s", spew.Sdump(expected))
 			// 	// t.Errorf("slices not equal len(actual) = %d, len(expected) = %d", len(result.Results), len(expected))
@@ -528,11 +528,14 @@ func listFilterDue(ts *httptest.Server, tm *TodoManager, td TodoList) func(*test
 		var body []byte
 		var err error
 
-		now := time.Now()
+		now := time.Now() // .UTC()
+		// gte := now.AddDate(0, 0, -1)
 		gte := now.Add(time.Second * -10)
 		lte := now.Add(time.Second * 10)
 
-		filter := "/?due:gt=" + gte.Format(time.RFC3339) + "&due:lt=" + lte.Format(time.RFC3339)
+		t.Logf("gte: %s, lte: %s", gte.Format(time.RFC3339Nano), lte.Format(time.RFC3339Nano))
+
+		filter := "/?due:gte=" + gte.Format(time.RFC3339Nano) + "&due:lte=" + lte.Format(time.RFC3339Nano)
 
 		client := ts.Client()
 		if res, err = client.Get(ts.URL + filter); err != nil {
@@ -552,7 +555,11 @@ func listFilterDue(ts *httptest.Server, tm *TodoManager, td TodoList) func(*test
 				t.Fatal(err)
 			}
 
-			expectedNext := fmt.Sprintf("/?due:gt=%s&due:lt=%s&page=2", gte.Format(time.RFC3339), lte.Format(time.RFC3339))
+			if len(result.Results) != 20 {
+				t.Errorf("len(result.Results) = %d", len(result.Results))
+			}
+
+			expectedNext := fmt.Sprintf("/?due:gte=%s&due:lte=%s&page=2", gte.Format(time.RFC3339Nano), lte.Format(time.RFC3339Nano))
 
 			if result.Next != expectedNext {
 				t.Errorf("result.Next = %s != %s", result.Next, expectedNext)
@@ -580,7 +587,7 @@ func testDelete(ts *httptest.Server, tm *TodoManager, td TodoList) func(*testing
 
 		data := map[string]interface{}{
 			"desc":  "DELETE Todo",
-			"due":   time.Now().UTC().Format(time.RFC3339),
+			"due":   time.Now().UTC().Format(time.RFC3339Nano),
 			"state": "in_progress",
 		}
 

@@ -17,7 +17,7 @@ func GenerateTodos(count int, tm *TodoManager) TodoList {
 
 		data := map[string]interface{}{
 			"desc":  fmt.Sprintf("Todo %d", i),
-			"due":   t.Format(time.RFC3339),
+			"due":   t.Format(time.RFC3339Nano),
 			"state": stateList[i%3],
 		}
 

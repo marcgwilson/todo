@@ -4,10 +4,26 @@ import (
 	"github.com/marcgwilson/todo/query"
 	"github.com/marcgwilson/todo/state"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"encoding/json"
 	"testing"
 	"time"
 )
+
+func TestTime(t *testing.T) {
+	t1 := time.Now()
+	t2 := time.Unix(t1.Unix(), 0)
+	t3 := time.Unix(0, t1.UnixNano())
+
+	if t1.Equal(t2) {
+		t.Errorf("t1 = t2: %s = %s", spew.Sdump(t1), spew.Sdump(t2))
+	}
+
+	if !t1.Equal(t3) {
+		t.Errorf("t1 != t3: %s != %s", spew.Sdump(t1), spew.Sdump(t3))
+	}
+}
 
 func TestTodoManager(t *testing.T) {
 	db, err := OpenDB(":memory:")
@@ -26,9 +42,10 @@ func TestTodoManager(t *testing.T) {
 		State:       state.Todo,
 	}
 
+	t.Logf("rfc3339: %s", expected.Due.Format(time.RFC3339Nano))
 	data := map[string]interface{}{
 		"desc":  expected.Description,
-		"due":   expected.Due.Format(time.RFC3339),
+		"due":   expected.Due.Format(time.RFC3339Nano),
 		"state": expected.State,
 	}
 
@@ -39,8 +56,9 @@ func TestTodoManager(t *testing.T) {
 	} else {
 		expected.ID = actual.ID
 
-		if !expected.Equals(actual) {
-			t.Errorf("expected != actual")
+		if !expected.Equal(actual) {
+
+			t.Errorf("expected != actual: %s != %s", spew.Sdump(expected), spew.Sdump(actual))
 		}
 	}
 
@@ -53,7 +71,7 @@ func TestTodoManager(t *testing.T) {
 
 	data2 := map[string]interface{}{
 		"desc":  expected2.Description,
-		"due":   expected2.Due.Format(time.RFC3339),
+		"due":   expected2.Due.Format(time.RFC3339Nano),
 		"state": expected2.State,
 	}
 
@@ -64,7 +82,7 @@ func TestTodoManager(t *testing.T) {
 	} else {
 		expected2.ID = actual2.ID
 
-		if !expected2.Equals(actual2) {
+		if !expected2.Equal(actual2) {
 			t.Errorf("expected != actual")
 		}
 	}
@@ -89,7 +107,7 @@ func TestTodoManager(t *testing.T) {
 
 	data3 := map[string]interface{}{
 		"desc":  expected3.Description,
-		"due":   expected3.Due.Format(time.RFC3339),
+		"due":   expected3.Due.Format(time.RFC3339Nano),
 		"state": expected3.State,
 	}
 
@@ -100,7 +118,7 @@ func TestTodoManager(t *testing.T) {
 	} else {
 		expected3.ID = actual3.ID
 
-		if !expected3.Equals(actual3) {
+		if !expected3.Equal(actual3) {
 			t.Errorf("expected != actual")
 		}
 	}
@@ -142,7 +160,7 @@ func TestTodo(t *testing.T) {
 		actual := &Todo{}
 		if err := json.Unmarshal(rawBytes, actual); err != nil {
 			t.Errorf("json.Unmarshal: %s", err)
-		} else if !expected.Equals(actual) {
+		} else if !expected.Equal(actual) {
 			t.Logf("expected != actual: %#v", actual)
 		}
 	}

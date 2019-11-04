@@ -5,13 +5,20 @@ import (
 
 	"github.com/marcgwilson/todo/state"
 
+	"fmt"
 	"net/url"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestParseValues(t *testing.T) {
-	u := `http://0.0.0.0:8000/?state=todo&due:gt=2019-11-02T06:39:42Z&due:lt=2019-11-12T06:39:42Z&page=1&count=20`
+	gt := time.Now().AddDate(0, 0, -2) // Greater than 2 days ago
+	lt := time.Now().AddDate(0, 0, 2) // Les than 2 days from now
+
+	gts := gt.Format(time.RFC3339Nano)
+	lts := lt.Format(time.RFC3339Nano)
+	u := fmt.Sprintf(`http://0.0.0.0:8000/?state=todo&due:gt=%s&due:lt=%s&page=1&count=20`, gts, lts)
 
 	var testURL *url.URL
 	var err error
@@ -31,7 +38,8 @@ func TestParseValues(t *testing.T) {
 		t.Errorf("%s != %s", expectedQuery, actualQuery)
 	}
 
-	expectedValues := []interface{}{int64(1572676782), int64(1573540782), state.Todo, int64(20), int64(0)}
+	expectedValues := []interface{}{gt.UTC(), lt.UTC(), state.Todo, int64(20), int64(0)}
+
 	actualValues := q.Values()
 
 	if !reflect.DeepEqual(expectedValues, actualValues) {
@@ -46,7 +54,7 @@ func TestParseValues(t *testing.T) {
 		t.Errorf("%s != %s", expectedQuery, actualQuery)
 	}
 
-	expectedValues = []interface{}{int64(1572676782), int64(1573540782), state.Todo}
+	expectedValues = []interface{}{gt.UTC(), lt.UTC(), state.Todo}
 	actualValues = q.Values()
 
 	if !reflect.DeepEqual(expectedValues, actualValues) {

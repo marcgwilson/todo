@@ -61,7 +61,7 @@ func (f RFC3339FormatChecker) IsFormat(input interface{}) bool {
 	}
 
 	formats := []string{
-		time.RFC3339,
+		time.RFC3339Nano,
 	}
 
 	for _, format := range formats {
