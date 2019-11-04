@@ -20,6 +20,22 @@ type PaginatedResponse struct {
 	Results  TodoList `json:"results"`
 }
 
+func (r *PaginatedResponse) Equal(t *PaginatedResponse) bool {
+	if r.Next != t.Next {
+		return false
+	}
+
+	if r.Previous != t.Previous {
+		return false
+	}
+
+	if !r.Results.Equal(t.Results) {
+		return false
+	}
+
+	return true
+}
+
 type Handler struct {
 	TM              *TodoManager
 	CreateValidator *gojsonschema.Schema

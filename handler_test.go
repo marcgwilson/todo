@@ -12,11 +12,37 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"net/http/httptest"
 	"reflect"
 	"testing"
 	"time"
 )
+
+func filterTodoWithURLString(t *testing.T, tm *TodoManager, urlString string) TodoList {
+	// TodoList from query with query parameters from url string
+	var err error
+	var u *url.URL
+	var params *query.QueryParams
+	var ae *apierror.Error
+	var todoList TodoList
+
+	if u, err = url.Parse(urlString); err != nil {
+		t.Fatal(err)
+	}
+
+	if params, ae = query.ParseValues(u.Query()); ae != nil {
+		t.Fatal(ae)
+	}
+
+	params.Depaginate()
+
+	if todoList, err = tm.Query(params.Query()); err != nil {
+		t.Fatal(err)
+	}
+
+	return todoList
+}
 
 func TestHandler(t *testing.T) {
 	db, err := OpenDB(":memory:")
@@ -359,6 +385,7 @@ func testUpdateErrors(ts *httptest.Server, tm *TodoManager, td TodoList) func(*t
 func testRetrieve(ts *httptest.Server, tm *TodoManager, td TodoList) func(*testing.T) {
 	return func(t *testing.T) {
 		var res *http.Response
+		var body []byte
 		var err error
 
 		expected, _ := tm.Get(td[0].ID)
@@ -370,9 +397,10 @@ func testRetrieve(ts *httptest.Server, tm *TodoManager, td TodoList) func(*testi
 			t.Fatal(err)
 		}
 
-		var body []byte
-		body, err = ioutil.ReadAll(res.Body)
-		res.Body.Close()
+		defer res.Body.Close()
+		if body, err = ioutil.ReadAll(res.Body); err != nil {
+			t.Fatal(err)
+		}
 
 		if res.StatusCode != http.StatusOK {
 			t.Errorf("res.StatusCode == %d", res.StatusCode)
@@ -395,8 +423,10 @@ func testRetrieve(ts *httptest.Server, tm *TodoManager, td TodoList) func(*testi
 			t.Fatal(err)
 		}
 
-		body, err = ioutil.ReadAll(res.Body)
-		res.Body.Close()
+		defer res.Body.Close()
+		if body, err = ioutil.ReadAll(res.Body); err != nil {
+			t.Fatal(err)
+		}
 
 		expectedError := &apierror.Error{
 			Code:    http.StatusNotFound,
@@ -429,12 +459,11 @@ func testList(ts *httptest.Server, tm *TodoManager, td TodoList) func(*testing.T
 		var res *http.Response
 		var body []byte
 		var err error
+		var todoList TodoList
 
-		all, _ := tm.Query(query.All())
-		// all, _ := tm.List(nil)
-
-		// expected := all[60:80]
-		expected := all[20:40]
+		if todoList, err = tm.Query(query.All()); err != nil {
+			t.Fatal(err)
+		}
 
 		client := ts.Client()
 
@@ -447,28 +476,24 @@ func testList(ts *httptest.Server, tm *TodoManager, td TodoList) func(*testing.T
 			t.Error(err)
 		}
 
+		expected := &PaginatedResponse{
+			Results: todoList[20:40],
+			Previous: "/?page=1",
+			Next: "/?page=3",
+		}
+
 		if res.StatusCode != http.StatusOK {
 			t.Errorf("res.StatusCode == %d", res.StatusCode)
 			t.Logf("body: %s", string(body))
 		} else {
-			result := &PaginatedResponse{}
-			if err = json.Unmarshal(body, result); err != nil {
+			actual := &PaginatedResponse{}
+			if err = json.Unmarshal(body, actual); err != nil {
 				t.Fatal(err)
 			}
 
-			expectedNext := "/?page=3"
-			if result.Next != expectedNext {
-				t.Errorf("result.Next = %s != %s", result.Next, expectedNext)
-			}
-
-			expectedPrevious := "/?page=1"
-			if result.Previous != expectedPrevious {
-				t.Errorf("result.Previous = %s != %s", result.Previous, expectedPrevious)
-			}
-
-			if !expected.Equal(result.Results) {
-				t.Errorf("actual: %s", spew.Sdump(result.Results))
-				t.Errorf("expected: %s", spew.Sdump(expected))
+			if !expected.Equal(actual) {
+				t.Errorf("actual: %s", spew.Sdump(actual))
+				t.Logf("expected: %s", spew.Sdump(expected))
 			}
 		}
 	}
@@ -480,43 +505,39 @@ func listFilterState(ts *httptest.Server, tm *TodoManager, td TodoList) func(*te
 		var body []byte
 		var err error
 
+		testURL := ts.URL + "/?state=todo&state=done&page=2"
+		todoList := filterTodoWithURLString(t, tm, testURL)
+
 		client := ts.Client()
 
-		if res, err = client.Get(ts.URL + "/?state=todo&state=done&page=2"); err != nil {
+		if res, err = client.Get(testURL); err != nil {
 			t.Fatal(err)
 		}
 
 		body, err = ioutil.ReadAll(res.Body)
 		res.Body.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		expected := &PaginatedResponse{
+			Results: todoList[20:40],
+			Previous: "/?page=1&state=todo&state=done",
+			Next: "/?page=3&state=todo&state=done",
+		}
 
 		if res.StatusCode != http.StatusOK {
 			t.Errorf("res.StatusCode == %d", res.StatusCode)
 			t.Logf("body: %s", string(body))
 		} else {
-
-			result := &PaginatedResponse{}
-			if err = json.Unmarshal(body, result); err != nil {
+			actual := &PaginatedResponse{}
+			if err = json.Unmarshal(body, actual); err != nil {
 				t.Fatal(err)
 			}
 
-			expectedNext := "/?page=3&state=todo&state=done"
-			if result.Next != expectedNext {
-				t.Errorf("result.Next = %s != %s", result.Next, expectedNext)
-			}
-
-			expectedPrevious := "/?page=1&state=todo&state=done"
-			if result.Previous != expectedPrevious {
-				t.Errorf("result.Previous = %s != %s", result.Previous, expectedPrevious)
-			}
-
-			// if !expected.Equal(result.Results) {
-			// 	t.Errorf("actual: %s", spew.Sdump(result.Results))
-			// 	t.Errorf("expected: %s", spew.Sdump(expected))
-			// 	// t.Errorf("slices not equal len(actual) = %d, len(expected) = %d", len(result.Results), len(expected))
-			// }
-
-			if len(result.Results) != 20 {
-				t.Errorf("len(result.Results = %d", len(result.Results))
+			if !expected.Equal(actual) {
+				t.Errorf("actual: %s", spew.Sdump(actual))
+				t.Logf("expected: %s", spew.Sdump(expected))
 			}
 		}
 	}
@@ -528,50 +549,42 @@ func listFilterDue(ts *httptest.Server, tm *TodoManager, td TodoList) func(*test
 		var body []byte
 		var err error
 
-		now := time.Now() // .UTC()
-		// gte := now.AddDate(0, 0, -1)
+		now := time.Now()
 		gte := now.Add(time.Second * -10)
 		lte := now.Add(time.Second * 10)
 
-		t.Logf("gte: %s, lte: %s", gte.Format(time.RFC3339Nano), lte.Format(time.RFC3339Nano))
-
-		filter := "/?due:gte=" + gte.Format(time.RFC3339Nano) + "&due:lte=" + lte.Format(time.RFC3339Nano)
+		testURL := fmt.Sprintf("%s/?due:gte=%s&due:lte=%s", ts.URL, gte.Format(time.RFC3339Nano), lte.Format(time.RFC3339Nano))
+		todoList := filterTodoWithURLString(t, tm, testURL)
 
 		client := ts.Client()
-		if res, err = client.Get(ts.URL + filter); err != nil {
+		if res, err = client.Get(testURL); err != nil {
 			t.Fatal(err)
 		}
 
 		defer res.Body.Close()
 		body, err = ioutil.ReadAll(res.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		expected := &PaginatedResponse{
+			Results: todoList[:20],
+			Previous: "",
+			Next: fmt.Sprintf("/?due:gte=%s&due:lte=%s&page=%d", gte.Format(time.RFC3339Nano), lte.Format(time.RFC3339Nano), 2),
+		}
 
 		if res.StatusCode != http.StatusOK {
 			t.Errorf("res.StatusCode == %d", res.StatusCode)
 			t.Logf("body: %s", string(body))
 		} else {
-
-			result := &PaginatedResponse{}
-			if err = json.Unmarshal(body, result); err != nil {
+			actual := &PaginatedResponse{}
+			if err = json.Unmarshal(body, actual); err != nil {
 				t.Fatal(err)
 			}
 
-			if len(result.Results) != 20 {
-				t.Errorf("len(result.Results) = %d", len(result.Results))
-			}
-
-			expectedNext := fmt.Sprintf("/?due:gte=%s&due:lte=%s&page=2", gte.Format(time.RFC3339Nano), lte.Format(time.RFC3339Nano))
-
-			if result.Next != expectedNext {
-				t.Errorf("result.Next = %s != %s", result.Next, expectedNext)
-			}
-
-			expectedPrevious := ""
-			if result.Previous != expectedPrevious {
-				t.Errorf("result.Previous = %s != %s", result.Previous, expectedPrevious)
-			}
-
-			if len(result.Results) != 20 {
-				t.Errorf("len(result.Results = %d", len(result.Results))
+			if !expected.Equal(actual) {
+				t.Errorf("actual: %s", spew.Sdump(actual))
+				t.Logf("expected: %s", spew.Sdump(expected))
 			}
 		}
 	}
@@ -608,12 +621,12 @@ func testDelete(ts *httptest.Server, tm *TodoManager, td TodoList) func(*testing
 		if res, err = client.Do(req); err != nil {
 			t.Fatal(err)
 		}
+		defer res.Body.Close()
 
 		if res.StatusCode != http.StatusNoContent {
 			t.Errorf("%d != %d", res.StatusCode, http.StatusNoContent)
 		}
 
-		defer res.Body.Close()
 		if body, err = ioutil.ReadAll(res.Body); err != nil {
 			t.Fatal(err)
 		} else {
@@ -649,6 +662,8 @@ func testDeleteErrors(ts *httptest.Server, tm *TodoManager, td TodoList) func(*t
 			t.Fatal(err)
 		}
 
+		defer res.Body.Close()
+
 		if res.StatusCode != http.StatusNotFound {
 			t.Errorf("%d != %d", res.StatusCode, http.StatusNotFound)
 		}
@@ -658,7 +673,6 @@ func testDeleteErrors(ts *httptest.Server, tm *TodoManager, td TodoList) func(*t
 			Message: "Not found",
 		}
 
-		defer res.Body.Close()
 		if body, err = ioutil.ReadAll(res.Body); err != nil {
 			t.Fatal(err)
 		} else {
